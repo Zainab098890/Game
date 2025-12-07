@@ -1,543 +1,152 @@
+
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لعبة الانماط الهندسية</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load canvas-confetti library for the celebration effect -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.js"></script>
-    <!-- Load Tone.js for generating sound effects -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
-    <style>
-        /* Custom font and RTL support */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f7f7;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
+<meta charset="UTF-8">
+<title>لعبة الأنماط الهندسية</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    body {
+        font-family: 'Tajawal', sans-serif;
+        background: linear-gradient(135deg,#dfe9f3,#ffffff);
+        text-align: center;
+        padding: 30px;
+    }
 
-        .shape-container {
-            /* Base size for slots and palette items */
-            width: 100%;
-            height: 4rem; /* h-16 equivalent */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
-        }
-        
-        .palette-shape {
-            width: 40px;
-            height: 40px;
-            cursor: grab;
-            margin: 0.5rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .palette-shape:hover {
-            transform: scale(1.1);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-        }
+    h1 {
+        font-size: 32px;
+        margin-bottom: 10px;
+        color: #333;
+    }
 
-        .drop-zone {
-            border: 2px dashed #9ca3af;
-            cursor: pointer;
-            background-color: #ffffff;
-        }
-        .drop-zone:hover {
-            border-color: #3b82f6;
-            background-color: #f0f7ff;
-        }
-        .drop-zone.drag-over {
-            border-color: #10b981;
-            background-color: #e6fffa;
-        }
-        .locked-slot {
-            background-color: #e5e7eb !important;
-            border-color: #9ca3af !important;
-            cursor: not-allowed;
-        }
-        
-        .shape-icon {
-            width: 80%;
-            height: 80%;
-        }
+    #patternBox, #playerBox {
+        display: flex;
+        justify-content: center;
+        margin: 15px auto;
+        gap: 8px;
+        padding: 15px;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        width: fit-content;
+    }
 
-        /* Color selector styles */
-        .color-option {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: border-color 0.15s;
-        }
-        .color-option.selected {
-            border-color: #000000;
-            box-shadow: 0 0 0 2px white;
-        }
-    </style>
-    <script>
-        // --- GAME CONFIGURATION AND ARABIC STRINGS ---
-        // تم زيادة طول النمط من 10 إلى 20 خانة
-        const PATTERN_LENGTH = 20; 
-        
-        // زيادة عدد الألوان المتاحة
-        const SHAPE_NAMES = ['circle', 'square', 'triangle', 'star', 'rhombus', 'hexagon'];
-        // تم تحديث الألوان إلى: (أحمر، أخضر، أصفر، أزرق، بنفسجي، برتقالي)
-        const COLOR_CODES = ['#ef4444', '#10b981', '#facc15', '#3b82f6', '#8b5cf6', '#f97316']; 
-        
-        // متغير عالمي لحجم وحدة النمط الحالي (سيتغير عشوائياً في كل لعبة)
-        let currentPatternUnitSize = 3; 
-        
-        const ARABIC = {
-            title: 'لعبة الانماط الهندسية',
-            message_initial: 'انقر على "امسح" لبدء نمط جديد!',
-            palette_title: 'قائمة الأشكال', 
-            color_selector: 'محدد الألوان:',
-            sequence_title: 'تسلسل النمط',
-            check_btn: 'تحقق', 
-            clear_btn: 'امسح', 
-            msg_click_fill: 'اسحب وأفلت',
-            msg_correct: '🎉 نمط صحيح! لقد فزت! 🎉',
-            msg_correct_partial: (size) => <span class="text-green-600 font-bold">🎉 عمل رائع! النمط صحيح حتى الآن (القاعدة: ${size} أشكال). استمر في الإكمال!</span>,
-            msg_incorrect_base: '<span class="text-red-600 font-bold">حاول مرة أخرى!</span>',
-            msg_incorrect_detail: (errorCount, rule) => لديك ${errorCount} خطأ. كانت القاعدة الصحيحة: ${rule.map(r => ARABIC.shape_names[r.shape] + ' (' + r.color + ')').join(', ')}.,
-            shape_names: {
-                circle: 'دائرة',
-                square: 'مربع',
-                triangle: 'مثلث',
-                star: 'نجمة',
-                rhombus: 'معين',
-                hexagon: 'سداسي',
-            }
-        };
+    .shape {
+        width: 48px;
+        height: 48px;
+        cursor: pointer;
+        transition: transform .2s;
+    }
 
-        // State Management
-        let patternRule = []; // Array of { shape: string, color: string } - The system-generated rule
-        let userPattern = new Array(PATTERN_LENGTH).fill(null); // Array of { shape: string, color: string } or null
-        let slotsLocked = new Array(PATTERN_LENGTH).fill(false);
-        let selectedColor = COLOR_CODES[0];
-        let currentDragData = null; // Stores { shape: string, color: string } during drag
+    .shape:hover {
+        transform: scale(1.15);
+    }
 
-        // --- TONE.JS SOUND SETUP ---
-        let dropSynth, successSynth, failureSynth;
+    #choices {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+    }
 
-        function initializeAudio() {
-            if (typeof Tone !== 'undefined') {
-                // بدء سياق الصوت. ضروري لتشغيل الصوت في المتصفحات الحديثة.
-                if (Tone.context.state !== 'running') {
-                    // Start is asynchronous, but we proceed with synth initialization
-                    // The sound will only play after the user interacts (drag/click)
-                    Tone.start().catch(e => console.warn("Audio Context Start Failed:", e));
-                }
-                
-                // 1. Drop Sound (صوت نقرة قصيرة)
-                dropSynth = new Tone.Synth({
-                    oscillator: { type: "square" },
-                    envelope: { attack: 0.005, decay: 0.05, sustain: 0.01, release: 0.1 }
-                }).toDestination();
-                dropSynth.volume.value = -12; // ضبط مستوى الصوت
+    button {
+        padding: 10px 22px;
+        font-size: 16px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #4a90e2;
+        color: #fff;
+        transition: .2s;
+    }
 
-                // 2. Success Sound (صوت جرس مبهج/تأثير الكونفيتي)
-                successSynth = new Tone.MembraneSynth({
-                    pitchDecay: 0.008,
-                    octaves: 1,
-                    envelope: { attack: 0.001, decay: 0.5, sustain: 0.0, release: 0.5 }
-                }).toDestination();
-                successSynth.volume.value = -6;
+    button:hover {
+        background: #2f6fba;
+    }
 
-                // 3. Failure Sound (صوت ضوضاء منخفض)
-                failureSynth = new Tone.NoiseSynth({
-                    noise: { type: "white" },
-                    envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 }
-                }).toDestination();
-                failureSynth.volume.value = -8; 
-            }
-        }
-
-        function playDropSound() {
-            if (dropSynth) {
-                // تشغيل نغمة عالية لتأثير النقرة
-                dropSynth.triggerAttackRelease("G5", "32n");
-            }
-        }
-
-        function playSuccessSound() {
-            if (successSynth) {
-                const now = Tone.now();
-                // تشغيل أربيجيو صاعد (لحن احتفالي)
-                successSynth.triggerAttackRelease("C6", "16n", now);
-                successSynth.triggerAttackRelease("E6", "16n", now + 0.1);
-                successSynth.triggerAttackRelease("G6", "8n", now + 0.2);
-            }
-        }
-
-        function playFailureSound() {
-            if (failureSynth) {
-                // تشغيل ضوضاء قصيرة ومنخفضة
-                failureSynth.triggerAttackRelease("16n", Tone.now());
-            }
-        }
-        
-        // --- SVG AND HELPER FUNCTIONS ---
-
-        /**
-         * Generates the SVG string for a given shape and color.
-         */
-        function getShapeSvg(type, color) {
-            const stroke = color;
-            const strokeWidth = 2;
-
-            const baseStyle = fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}";
-            
-            switch (type) {
-                case 'circle':
-                    return <svg class="shape-icon" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" ${baseStyle}/></svg>;
-                case 'square':
-                    return <svg class="shape-icon" viewBox="0 0 40 40"><rect x="4" y="4" width="32" height="32" ${baseStyle} rx="4"/></svg>;
-                case 'triangle':
-                    const points = 20,5 ${5},35 ${35},35;
-                    return <svg class="shape-icon" viewBox="0 0 40 40"><polygon points="${points}" ${baseStyle}/></svg>;
-                case 'star':
-                    const starPoints = "20,3 25,15 38,15 28,24 32,37 20,30 8,37 12,24 2,15 15,15";
-                    return <svg class="shape-icon" viewBox="0 0 40 40"><polygon points="${starPoints}" ${baseStyle}/></svg>;
-                case 'rhombus':
-                    const rhombusPoints = "20,5 35,20 20,35 5,20";
-                    return <svg class="shape-icon" viewBox="0 0 40 40"><polygon points="${rhombusPoints}" ${baseStyle}/></svg>;
-                case 'hexagon':
-                    const hexPoints = "20,4 35,12 35,28 20,36 5,28 5,12";
-                    return <svg class="shape-icon" viewBox="0 0 40 40"><polygon points="${hexPoints}" ${baseStyle}/></svg>;
-                default:
-                    return '';
-            }
-        }
-
-        /**
-         * Generates a random pattern rule of given size.
-         */
-        function generateRandomRule(size) {
-            const rule = [];
-            for (let i = 0; i < size; i++) {
-                const randomShape = SHAPE_NAMES[Math.floor(Math.random() * SHAPE_NAMES.length)];
-                // استخدم عشوائية لاختيار لون من قائمة الألوان الموسعة
-                const randomColor = COLOR_CODES[Math.floor(Math.random() * COLOR_CODES.length)]; 
-                rule.push({ shape: randomShape, color: randomColor });
-            }
-            return rule;
-        }
-
-        /**
-         * Clears the board and sets up the game in Practice Mode.
-         */
-        function initializeGame() {
-            // تهيئة إعدادات الصوت
-            initializeAudio(); 
-
-            // اختر حجم النمط عشوائياً بين 2، 3، و 4
-            currentPatternUnitSize = Math.floor(Math.random() * 3) + 2; 
-
-            patternRule = generateRandomRule(currentPatternUnitSize);
-            userPattern = new Array(PATTERN_LENGTH).fill(null);
-            slotsLocked = new Array(PATTERN_LENGTH).fill(false);
-
-            const messageBox = document.getElementById('message-box');
-            document.getElementById('check-button').disabled = false;
-            
-            // تحديث عنوان التسلسل ليعكس حجم القاعدة
-            document.getElementById('sequence-title').textContent = ${ARABIC.sequence_title} (القاعدة: ${currentPatternUnitSize} أشكال);
-
-            // Pre-fill and lock the rule unit (first currentPatternUnitSize slots)
-            for (let i = 0; i < currentPatternUnitSize; i++) {
-                userPattern[i] = patternRule[i];
-                slotsLocked[i] = true;
-            }
-            messageBox.innerHTML = القاعدة المتكررة هي ${currentPatternUnitSize} أشكال. أكمل التسلسل!;
-
-            // Ensure color selector is enabled (always true now)
-            document.getElementById('color-selector-container').classList.remove('opacity-50', 'pointer-events-none');
-
-            // تأكد من أن اللون المحدد هو لون صالح
-            selectedColor = COLOR_CODES[0]; 
-
-            renderPalette();
-            renderColorSelector();
-            renderPatternGrid();
-        }
-        
-        /**
-         * Renders the palette of available shapes for dragging/clicking.
-         */
-        function renderPalette() {
-            const paletteEl = document.getElementById('palette');
-            paletteEl.innerHTML = ''; 
-
-            SHAPE_NAMES.forEach(shapeName => {
-                const shapeEl = document.createElement('div');
-                // Use the currently selected color for the drag item
-                const svgContent = getShapeSvg(shapeName, selectedColor); 
-
-                shapeEl.className = 'palette-shape bg-white transition hover:shadow-xl flex justify-center items-center';
-                shapeEl.innerHTML = svgContent;
-                shapeEl.setAttribute('draggable', 'true');
-                
-                // Store shape and current color data
-                const shapeData = { shape: shapeName, color: selectedColor };
-                shapeEl.setAttribute('data-shape', shapeName);
-                shapeEl.setAttribute('data-color', selectedColor);
-
-                // Drag and drop setup
-                shapeEl.addEventListener('dragstart', (e) => {
-                    // Update currentDragData to ensure it has the latest selected color
-                    currentDragData = { shape: shapeName, color: selectedColor }; 
-                    e.dataTransfer.setData('text/plain', JSON.stringify(currentDragData));
-                    e.dataTransfer.effectAllowed = 'copy';
-                });
-
-                paletteEl.appendChild(shapeEl);
-            });
-        }
-        
-        /**
-         * Renders the color selector options.
-         */
-        function renderColorSelector() {
-            const selectorEl = document.getElementById('color-selector');
-            selectorEl.innerHTML = '';
-            
-            COLOR_CODES.forEach(color => {
-                const colorEl = document.createElement('div');
-                colorEl.className = color-option ${color === selectedColor ? 'selected' : ''};
-                colorEl.style.backgroundColor = color;
-                colorEl.onclick = () => {
-                    selectedColor = color;
-                    renderColorSelector(); // Update borders
-                    renderPalette(); // Update palette icons
-                };
-                selectorEl.appendChild(colorEl);
-            });
-        }
-
-        /**
-         * Renders the pattern grid (the main game board).
-         */
-        function renderPatternGrid() {
-            const gridEl = document.getElementById('pattern-grid');
-            gridEl.innerHTML = ''; 
-
-            userPattern.forEach((item, index) => {
-                const slotEl = document.createElement('div');
-                const isLocked = slotsLocked[index];
-                
-                // Base classes
-                let classes = 'shape-container w-full border-2 flex items-center justify-center rounded-lg transition duration-150 ease-in-out';
-
-                if (isLocked) {
-                    classes += ' locked-slot';
-                } else {
-                    classes += ' drop-zone';
-                    slotEl.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        slotEl.classList.add('drag-over');
-                    });
-                    slotEl.addEventListener('dragleave', () => {
-                        slotEl.classList.remove('drag-over');
-                    });
-                    slotEl.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        slotEl.classList.remove('drag-over');
-                        handleDrop(index, currentDragData);
-                    });
-                    
-                    // Allow clearing the slot by clicking it if it's not locked and has content
-                    if (item) {
-                         slotEl.onclick = () => handleClearSlot(index);
-                    }
-                }
-
-                slotEl.className = classes;
-                slotEl.setAttribute('data-index', index);
-
-                if (item) {
-                    slotEl.innerHTML = getShapeSvg(item.shape, item.color);
-                } else if (!isLocked) {
-                    slotEl.innerHTML = <span class="text-gray-400 text-xs">${ARABIC.msg_click_fill}</span>;
-                }
-
-                gridEl.appendChild(slotEl);
-            });
-        }
-        
-        /**
-         * Handles dropping a shape onto a slot.
-         */
-        function handleDrop(index, data) {
-            // Data is passed from dragstart, so it's guaranteed to have shape and color
-            if (slotsLocked[index] || !data) return;
-            // Create a fresh copy of the data (this is important because currentDragData is shared)
-            userPattern[index] = { ...data }; 
-            renderPatternGrid();
-            // تشغيل صوت الإفلات
-            playDropSound(); 
-        }
-        
-        /**
-         * Clears a shape from an unlocked slot by clicking it.
-         */
-        function handleClearSlot(index) {
-            if (slotsLocked[index]) return;
-            userPattern[index] = null;
-            renderPatternGrid();
-        }
-
-        /**
-         * Compares the user's pattern with the correct pattern.
-         */
-        function checkPattern() {
-            document.getElementById('check-button').disabled = true;
-
-            const messageBox = document.getElementById('message-box');
-            let errorCount = 0;
-            let isComplete = true; 
-
-            // The rule is defined by patternRule
-            const ruleToCheck = patternRule; 
-            const ruleSize = currentPatternUnitSize;
-
-            // 2. Compare all slots
-            for (let i = 0; i < PATTERN_LENGTH; i++) {
-                const userItem = userPattern[i];
-                const ruleItem = ruleToCheck[i % ruleSize];
-
-                if (userItem) {
-                    // Check both shape and color consistency
-                    if (userItem.shape !== ruleItem.shape || userItem.color !== ruleItem.color) {
-                        errorCount++;
-                    }
-                } else {
-                    // Check for completeness only if the slot is NOT locked (i.e., user input required)
-                    if (!slotsLocked[i]) {
-                        isComplete = false;
-                    }
-                }
-            }
-            
-            // 3. Check for correctness
-            if (errorCount === 0) {
-                // النجاح الجزئي أو الكامل
-                playSuccessSound(); // تشغيل صوت النجاح
-                triggerConfetti();
-
-                if (!isComplete) {
-                     // النمط صحيح حتى الآن، ولكنه لم يكتمل
-                     messageBox.innerHTML = ARABIC.msg_correct_partial(ruleSize);
-                     document.getElementById('check-button').disabled = false;
-                     return;
-                }
-                
-                // إذا لم تكن هناك أخطاء واكتمل النمط (الشرط الكامل للفوز)
-                messageBox.innerHTML = ARABIC.msg_correct;
-                // ابدأ لعبة جديدة بعد تأخير
-                setTimeout(initializeGame, 5000);
-            } else {
-                // إظهار الأخطاء
-                playFailureSound(); // تشغيل صوت الخطأ
-                messageBox.innerHTML = ${ARABIC.msg_incorrect_base} ${ARABIC.msg_incorrect_detail(errorCount, ruleToCheck)};
-                document.getElementById('check-button').disabled = false;
-            }
-        }
-
-        /**
-         * Triggers a confetti explosion!
-         */
-        function triggerConfetti() {
-            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-            setTimeout(() => {
-                confetti({ particleCount: 100, angle: 60, spread: 55, origin: { x: 0 } });
-                confetti({ particleCount: 100, angle: 120, spread: 55, origin: { x: 1 } });
-            }, 500);
-        }
-
-        // Start the game when the window loads
-        window.onload = initializeGame;
-
-    </script>
+    #msg {
+        margin-top: 20px;
+        font-size: 20px;
+        font-weight: bold;
+    }
+</style>
 </head>
 <body>
 
-    <div class="max-w-4xl w-full bg-white p-6 md:p-10 rounded-3xl shadow-2xl space-y-8 text-right">
-        <!-- العنوان الرئيسي -->
-        <h1 class="text-4xl font-extrabold text-gray-800 text-center mb-2">
-            لعبة الانماط الهندسية
-        </h1>
-        <!-- تم تعديل هذا النص ليشدد على ضرورة اختيار الأشكال والألوان معاً -->
-        <p class="text-center text-gray-600 text-lg">
-            تحدد الأشكال والألوان القليلة الأولى قاعدة النمط المتكررة. يجب عليك اختيار *الشكل واللون الصحيحين* من قائمة الأدوات لإكمال التسلسل بأكمله.
-        </p>
+<h1>لعبة الأنماط الهندسية</h1>
+<p>شاهد النمط ثم حاول تقليده!</p>
 
-        <!-- Confetti Message Box -->
-        <div id="message-box" class="text-center p-4 rounded-xl text-gray-700 bg-yellow-100 border border-yellow-300">
-            انقر على "امسح" لبدء نمط جديد!
-        </div>
+<div id="patternBox"></div>
+<div id="playerBox"></div>
 
-        <!-- SHAPE PALETTE (The Patterns Tool) -->
-        <div class="space-y-4">
-            <!-- قائمة الأشكال -->
-            <h2 class="text-xl font-semibold text-gray-700">قائمة الأشكال</h2>
-            
-            <!-- Color Selector (Now always active) -->
-            <div id="color-selector-container" class="flex flex-col sm:flex-row items-center sm:space-x-4 sm:space-x-reverse mb-4">
-                <span class="font-medium text-gray-600 mb-2 sm:mb-0">محدد الألوان:</span>
-                <div id="color-selector" class="flex space-x-2 space-x-reverse p-2 bg-white rounded-lg shadow-inner border border-gray-200">
-                    <!-- Color options rendered here -->
-                </div>
-            </div>
+<h3>اختر شكلاً:</h3>
+<div id="choices"></div>
 
-            <!-- Shape Icons -->
-            <div id="palette" class="flex flex-wrap justify-start gap-2 p-4 bg-gray-50 rounded-xl shadow-inner border border-gray-200">
-                <!-- Shapes will be rendered here by JavaScript -->
-            </div>
-        </div>
+<div style="margin-top:20px">
+    <button onclick="checkPattern()">تحقق</button>
+    <button onclick="startGame()">إعادة</button>
+</div>
 
-        <!-- PATTERN GRID (The Game Board) -->
-        <div class="space-y-4">
-            <!-- تم إزالة الإجمالي: 10 وستتم إضافة حجم القاعدة بواسطة JS -->
-            <h2 id="sequence-title" class="text-xl font-semibold text-gray-700">تسلسل النمط</h2>
-            <!-- تم تعديل الشبكة لعرض 20 خانة بشكل مناسب (5 أعمدة) -->
-            <div id="pattern-grid" class="grid grid-cols-5 gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                <!-- The 20 pattern slots will be rendered here -->
-            </div>
-        </div>
+<div id="msg"></div>
 
+<script>
+    const shapes = [
+        `<svg class="shape"><circle cx="24" cy="24" r="20" fill="#e74c3c"/></svg>`,
+        `<svg class="shape"><rect width="40" height="40" x="4" y="4" fill="#2ecc71"/></svg>`,
+        `<svg class="shape"><polygon points="24,4 44,44 4,44" fill="#3498db"/></svg>`,
+        `<svg class="shape"><polygon points="24,4 34,20 48,20 38,32 42,48 24,38 6,48 10,32 0,20 14,20" fill="#f1c40f"/></svg>`
+    ];
 
-        <!-- CONTROLS -->
-        <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 sm:space-x-reverse pt-4">
-            <!-- زر التحقق -->
-            <button
-                id="check-button"
-                onclick="checkPattern()"
-                class="w-full sm:w-1/2 p-4 text-white font-bold rounded-xl shadow-lg transition duration-200
-                       bg-green-600 hover:bg-green-700 hover:shadow-xl active:bg-green-800
-                       disabled:bg-gray-400 disabled:cursor-not-allowed">
-                تحقق
-            </button>
-            <!-- زر المسح -->
-            <button
-                onclick="initializeGame()"
-                class="w-full sm:w-1/2 p-4 text-gray-800 font-bold rounded-xl shadow-lg transition duration-200
-                       bg-yellow-400 hover:bg-yellow-500 hover:shadow-xl active:bg-yellow-600">
-                امسح
-            </button>
-        </div>
+    let pattern = [];
+    let player = [];
 
-    </div>
+    // إنشاء الأزرار لاختيار الأشكال
+    const choiceBox = document.getElementById("choices");
+    shapes.forEach((s, i) => {
+        const btn = document.createElement("div");
+        btn.innerHTML = s;
+        btn.onclick = () => addShape(i);
+        choiceBox.appendChild(btn);
+    });
+
+    function startGame() {
+        pattern = [];
+        player = [];
+        document.getElementById("playerBox").innerHTML = "";
+        document.getElementById("msg").innerHTML = "";
+
+        // إنشاء نمط عشوائي بطول 5
+        for (let i = 0; i < 5; i++) {
+            pattern.push(Math.floor(Math.random() * shapes.length));
+        }
+
+        // عرض النمط
+        document.getElementById("patternBox").innerHTML = pattern.map(i => shapes[i]).join("");
+    }
+
+    function addShape(index) {
+        player.push(index);
+        document.getElementById("playerBox").innerHTML = player.map(i => shapes[i]).join("");
+    }
+
+    function checkPattern() {
+        if (player.length !== pattern.length) {
+            document.getElementById("msg").innerHTML = "❌ لم تكملي النمط!";
+            return;
+        }
+
+        let correct = player.every((v,i)=> v === pattern[i]);
+
+        if (correct) {
+            document.getElementById("msg").innerHTML = "🎉 صحيح! أحسنتِ!";
+        } else {
+            document.getElementById("msg").innerHTML = "❌ خطأ! حاولي مرة أخرى!";
+        }
+    }
+
+    startGame();
+</script>
 
 </body>
-
 </html>
